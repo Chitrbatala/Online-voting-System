@@ -1,153 +1,232 @@
+import javax.swing.*;
+import java.awt.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import java.sql.*;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Scanner;
 
-public class OnlineVotingSystem  {
+public class VotingManage extends JFrame {
     private static final String JDBC_URL = "jdbc:mysql://localhost:3306/voting_system";
     private static final String USERNAME = "root";
     private static final String PASSWORD = "Chitr@9354";
 
-    public static void main(String[] args) {
+    private Connection connection;
+
+    public VotingManage() {
+        initializeDatabase();
+        initComponents();
+    }
+
+    private void initializeDatabase() {
         try {
-            Connection connection = DriverManager.getConnection(JDBC_URL, USERNAME, PASSWORD);
-            initializeDatabase(connection);
-
-            Scanner scanner = new Scanner(System.in);
-            int choice;
-
-            System.out.println("Welcome to the Online Voting System!");
-            do {
-                System.out.println("1. List Candidates and Party Symbols");
-                System.out.println("2. Vote for Candidate");
-                System.out.println("3. View Results");
-                System.out.println("4. Display Party Symbols");
-                System.out.println("5. Reset Votes");
-                System.out.println("6. Exit");
-                System.out.print("Enter your choice: ");
-                choice = scanner.nextInt();
-
-                switch (choice) {
-                    case 1:
-                        listCandidates(connection);
-                        break;
-                    case 2:
-                        voteForCandidate(connection);
-                        break;
-                    case 3:
-                        viewResults(connection);
-                        break;
-                    case 4:
-                        displayPartySymbols(connection);
-                        break;
-                    case 5:
-                        resetVotes(connection);
-                        break;
-                    case 6:
-                        System.out.println("Exiting the voting system. Thank you!");
-                        break;
-                    default:
-                        System.out.println("Invalid choice. Please try again.");
-                        break;
-                }
-            } while (choice != 6);
-
-            connection.close();
+            connection = DriverManager.getConnection(JDBC_URL, USERNAME, PASSWORD);
+            createTableIfNotExists();
+            insertDefaultCandidates();
         } catch (SQLException e) {
             e.printStackTrace();
         }
     }
 
-    private static void initializeDatabase(Connection connection) throws SQLException {
+    private void createTableIfNotExists() {
         try (Statement statement = connection.createStatement()) {
             String createTableQuery = "CREATE TABLE IF NOT EXISTS candidates " +
                     "(id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(255), party_symbol VARCHAR(50), votes INT)";
             statement.executeUpdate(createTableQuery);
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
 
-            // Check if candidates already exist
+    private void insertDefaultCandidates() {
+        try (Statement statement = connection.createStatement()) {
             String checkCandidatesQuery = "SELECT COUNT(*) AS count FROM candidates";
             ResultSet resultSet = statement.executeQuery(checkCandidatesQuery);
             resultSet.next();
             int candidateCount = resultSet.getInt("count");
 
             if (candidateCount == 0) {
-                // Insert candidates only if they don't exist
                 String insertCandidatesQuery = "INSERT IGNORE INTO candidates (name, party_symbol, votes) VALUES " +
-                        " ('Bhartiya Janta Party','Lotus', 0), " +
+                        "('Bhartiya Janta Party','Lotus', 0), " +
                         "('Aam Aadmi Party','Broom', 0), " +
-                        "  ('Congress','Hand', 0), " +
-                        " ('Samajwadi Party','Cycle', 0)";
+                        "('Congress','Hand', 0), " +
+                        "('Samajwadi Party','Cycle', 0)";
                 statement.executeUpdate(insertCandidatesQuery);
             }
+        } catch (SQLException e) {
+            e.printStackTrace();
         }
     }
 
-    private static void listCandidates(Connection connection) throws SQLException {
+    private void initComponents() {
+        setTitle("Online Voting System");
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setSize(500, 300);
+        setLocationRelativeTo(null);
+
+        JButton listCandidatesButton = new JButton("List Candidates");
+        JButton voteButton = new JButton("Vote for Candidate");
+        JButton viewResultsButton = new JButton("View Results");
+        JButton displaySymbolsButton = new JButton("Display Party Symbols");
+        JButton resetVotesButton = new JButton("Reset Votes");
+        JButton exitButton = new JButton("Exit");
+
+        listCandidatesButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                listCandidates();
+            }
+        });
+
+        voteButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                voteForCandidate();
+            }
+        });
+
+        viewResultsButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                viewResults();
+            }
+        });
+
+        displaySymbolsButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                displayPartySymbols();
+            }
+        });
+
+        resetVotesButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                resetVotes();
+            }
+        });
+
+        exitButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                closeConnection();
+                System.exit(0);
+            }
+        });
+
+        JPanel panel = new JPanel();
+        panel.setLayout(new GridLayout(6, 1));
+        panel.add(listCandidatesButton);
+        panel.add(voteButton);
+        panel.add(viewResultsButton);
+        panel.add(displaySymbolsButton);
+        panel.add(resetVotesButton);
+        panel.add(exitButton);
+
+        getContentPane().add(panel);
+    }
+
+    private void listCandidates() {
         try (Statement statement = connection.createStatement()) {
             String listCandidatesQuery = "SELECT * FROM candidates";
             ResultSet resultSet = statement.executeQuery(listCandidatesQuery);
 
-            System.out.println("Candidates and Party Symbols:");
+            StringBuilder candidatesInfo = new StringBuilder("Candidates and Party Symbols:\n");
             while (resultSet.next()) {
-                System.out.println(resultSet.getInt("id") + ". " +
-                        resultSet.getString("name") + " (Party Symbol: " + resultSet.getString("party_symbol") + ")");
+                candidatesInfo.append(resultSet.getInt("id")).append(". ")
+                        .append(resultSet.getString("name")).append(" (Party Symbol: ")
+                        .append(resultSet.getString("party_symbol")).append(")\n");
             }
+
+            JOptionPane.showMessageDialog(this, candidatesInfo.toString(), "List Candidates", JOptionPane.INFORMATION_MESSAGE);
+        } catch (SQLException e) {
+            e.printStackTrace();
         }
     }
 
-    private static void voteForCandidate(Connection connection) throws SQLException {
-        Scanner scanner = new Scanner(System.in);
+    private void voteForCandidate() {
+        String candidateIdStr = JOptionPane.showInputDialog(this, "Enter the candidate ID you want to vote for:");
+        try {
+            int candidateId = Integer.parseInt(candidateIdStr);
+            try (PreparedStatement preparedStatement = connection.prepareStatement("UPDATE candidates SET votes = votes + 1 WHERE id = ?")) {
+                preparedStatement.setInt(1, candidateId);
+                int rowsUpdated = preparedStatement.executeUpdate();
 
-        System.out.print("Enter the candidate ID you want to vote for: ");
-        int candidateId = scanner.nextInt();
-
-        try (PreparedStatement preparedStatement = connection.prepareStatement("UPDATE candidates SET votes = votes + 1 WHERE id = ?")) {
-            preparedStatement.setInt(1, candidateId);
-            int rowsUpdated = preparedStatement.executeUpdate();
-
-            if (rowsUpdated > 0) {
-                System.out.println("Vote successfully cast for candidate ID " + candidateId);
-            } else {
-                System.out.println("Invalid candidate ID. Please try again.");
+                if (rowsUpdated > 0) {
+                    JOptionPane.showMessageDialog(this, "Vote successfully cast for candidate ID " + candidateId);
+                } else {
+                    JOptionPane.showMessageDialog(this, "Invalid candidate ID. Please try again.", "Error", JOptionPane.ERROR_MESSAGE);
+                }
             }
+        } catch (NumberFormatException | SQLException e) {
+            JOptionPane.showMessageDialog(this, "Invalid input. Please enter a valid candidate ID.", "Error", JOptionPane.ERROR_MESSAGE);
         }
     }
 
-    private static void viewResults(Connection connection) throws SQLException {
+    private void viewResults() {
         try (Statement statement = connection.createStatement()) {
             String viewResultsQuery = "SELECT * FROM candidates";
             ResultSet resultSet = statement.executeQuery(viewResultsQuery);
 
-            System.out.println("Results:");
+            StringBuilder resultsInfo = new StringBuilder("Results:\n");
             while (resultSet.next()) {
-                System.out.println(resultSet.getString("name") + " (Party Symbol: " + resultSet.getString("party_symbol") +
-                        "): " + resultSet.getInt("votes") + " votes");
+                resultsInfo.append(resultSet.getString("name")).append(" (Party Symbol: ")
+                        .append(resultSet.getString("party_symbol")).append("): ")
+                        .append(resultSet.getInt("votes")).append(" votes\n");
             }
+
+            JOptionPane.showMessageDialog(this, resultsInfo.toString(), "View Results", JOptionPane.INFORMATION_MESSAGE);
+        } catch (SQLException e) {
+            e.printStackTrace();
         }
     }
 
-    private static void displayPartySymbols(Connection connection) throws SQLException {
+    private void displayPartySymbols() {
         try (Statement statement = connection.createStatement()) {
             String displaySymbolsQuery = "SELECT name, party_symbol FROM candidates";
             ResultSet resultSet = statement.executeQuery(displaySymbolsQuery);
 
-            System.out.println("Party Symbols:");
+            StringBuilder symbolsInfo = new StringBuilder("Party Symbols:\n");
             while (resultSet.next()) {
-                System.out.println(resultSet.getString("name") + ": " + resultSet.getString("party_symbol"));
+                symbolsInfo.append(resultSet.getString("name")).append(": ").append(resultSet.getString("party_symbol")).append("\n");
             }
+
+            JOptionPane.showMessageDialog(this, symbolsInfo.toString(), "Display Party Symbols", JOptionPane.INFORMATION_MESSAGE);
+        } catch (SQLException e) {
+            e.printStackTrace();
         }
     }
 
-    private static void resetVotes(Connection connection) throws SQLException {
+    private void resetVotes() {
         try (Statement statement = connection.createStatement()) {
             String resetVotesQuery = "UPDATE candidates SET votes = 0";
             int rowsUpdated = statement.executeUpdate(resetVotesQuery);
 
             if (rowsUpdated > 0) {
-                System.out.println("All votes reset to 0.");
+                JOptionPane.showMessageDialog(this, "All votes reset to 0.", "Reset Votes", JOptionPane.INFORMATION_MESSAGE);
             } else {
-                System.out.println("Failed to reset votes.");
+                JOptionPane.showMessageDialog(this, "Failed to reset votes.", "Error", JOptionPane.ERROR_MESSAGE);
             }
+        } catch (SQLException e) {
+            e.printStackTrace();
         }
+    }
+
+    private void closeConnection() {
+        try {
+            if (connection != null && !connection.isClosed()) {
+                connection.close();
+                System.out.println("Connection closed.");
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static void main(String[] args) {
+        SwingUtilities.invokeLater(new Runnable() {
+            @Override
+            public void run() {
+                new VotingManage().setVisible(true);
+            }
+        });
     }
 }
